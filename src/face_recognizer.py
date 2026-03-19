@@ -20,16 +20,74 @@ class FaceRecognizer:
         初始化人脸识别器
 
         Args:
-            model_path: 模型文件路径，如果为 None 则使用默认模型
+            model_path: 模型目录路径（可选，如果为 None 则使用 models/buffalo_l）
             sim_threshold: 相似度阈值，用于判断是否为同一人
+
+        Raises:
+            ValueError: 如果模型未下载
+            FileNotFoundError: 如果模型文件不存在
         """
         self.sim_threshold = sim_threshold
         self.face_db = {}  # 人脸数据库：{name: [embeddings]}
 
+        # 设置默认模型路径为相对路径
+        if model_path is None:
+            model_path = 'models'
+
+        # 检查 InsightFace 模型是否已下载
+        self._check_models(model_path)
+
         # 初始化 InsightFace 应用
         providers = ['CPUExecutionProvider']  # 使用 CPU，避免依赖 CUDA
-        self.app = FaceAnalysis(name='buffalo_l', providers=providers)
+        self.app = FaceAnalysis(name='buffalo_l', providers=providers, root=model_path)
         self.app.prepare(ctx_id=0, det_size=(640, 640))
+
+    def _check_models(self, model_path: str):
+        """检查 InsightFace 模型是否已下载"""
+        import os
+
+        # 使用相对路径 models/buffalo_l
+        model_dir = os.path.join(model_path, 'buffalo_l')
+
+        # 检查模型目录是否存在
+        if not os.path.exists(model_dir):
+            raise ValueError(
+                "InsightFace 模型未下载！\n"
+                "本系统禁止自动下载模型，必须手动下载。\n\n"
+                "请按照以下步骤下载模型：\n"
+                "1. 访问 InsightFace GitHub 仓库：\n"
+                "   https://github.com/deepinsight/insightface\n\n"
+                "2. 下载 Buffalo_L 模型：\n"
+                "   - 方法1: 使用 git clone\n"
+                "     git clone https://github.com/deepinsight/insightface.git\n"
+                "     然后复制 models/buffalo_l 目录到项目的 models/ 目录:\n"
+                f"     {model_dir}\n\n"
+                "   - 方法2: 手动下载模型文件\n"
+                "     从 https://github.com/deepinsight/insightface/releases\n"
+                "     下载 buffalo_l 模型包并解压到:\n"
+                f"     {model_dir}\n\n"
+                "3. 模型目录应包含以下文件：\n"
+                "   - det_10g.onnx\n"
+                "   - w600k_r50.onnx\n"
+                "   - genderage.onnx\n"
+                "   - 2d106det.onnx\n\n"
+                "详细说明请参考: doc/MODEL_SETUP.md"
+            )
+
+        # 检查关键模型文件是否存在
+        required_files = ['det_10g.onnx', 'w600k_r50.onnx', 'genderage.onnx']
+        missing_files = []
+        for file in required_files:
+            if not os.path.exists(os.path.join(model_dir, file)):
+                missing_files.append(file)
+
+        if missing_files:
+            raise FileNotFoundError(
+                f"InsightFace 模型文件不完整！\n"
+                f"缺少以下文件: {', '.join(missing_files)}\n\n"
+                f"模型目录: {model_dir}\n"
+                "请确保所有模型文件都已正确下载。"
+            )
 
     def extract_embedding(self, image: np.ndarray, face_bbox: Optional[Tuple[int, int, int, int]] = None) -> Optional[np.ndarray]:
         """

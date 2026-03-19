@@ -3,6 +3,7 @@
 优化小尺寸、远距离人脸检测
 """
 
+import os
 import cv2
 import numpy as np
 from ultralytics import YOLO
@@ -17,16 +18,30 @@ class FaceDetector:
         初始化人脸检测器
 
         Args:
-            model_path: 模型文件路径，如果为 None 则使用默认的 YOLO v8n-face
+            model_path: 模型文件路径（必需，禁止自动下载）
             conf_threshold: 置信度阈值
-        """
-        self.conf_threshold = conf_threshold
 
-        if model_path:
-            self.model = YOLO(model_path)
-        else:
-            # 使用 YOLO v8 nano face 模型（轻量级，适合本地部署）
-            self.model = YOLO('yolov8n-face.pt')
+        Raises:
+            ValueError: 如果未提供模型路径
+            FileNotFoundError: 如果模型文件不存在
+        """
+        if model_path is None:
+            raise ValueError(
+                "必须提供模型路径！\n"
+                "请手动下载 YOLO v8 face 模型并指定路径。\n"
+                "模型下载地址：https://github.com/deepcam-cn/yolov8-face\n"
+                "支持的模型：yolov8n-face.pt, yolov8s-face.pt, yolov8m-face.pt\n"
+                "使用方法：FaceDetector(model_path='models/yolov8n-face.pt')"
+            )
+
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"模型文件不存在: {model_path}\n"
+                f"请确保模型文件已下载并放置在指定位置。"
+            )
+
+        self.conf_threshold = conf_threshold
+        self.model = YOLO(model_path)
 
     def detect(self, image: np.ndarray, enhance_small: bool = True) -> List[Tuple[int, int, int, int]]:
         """
